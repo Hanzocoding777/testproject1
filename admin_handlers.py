@@ -60,50 +60,31 @@ async def admin_teams_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     await query.answer()
 
 async def handle_team_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Обработка действий с командами (одобрение/отклонение)"""
+    """Обработка действий с командами."""
     query = update.callback_query
-    
-    # Проверка на админа временно отключена для тестирования
-    # if not db.is_admin(query.from_user.id):
-    #     await query.answer("У вас нет доступа к этой функции.")
-    #     return
+    if not db.is_admin(query.from_user.id):
+        await query.answer("У вас нет доступа к этой функции.")
+        return
 
-    action = query.data
-    if action.startswith(("approve_team_", "reject_team_")):
-        team_id = int(action.split('_')[2])
-        status = 'approved' if action.startswith('approve') else 'rejected'
-        
-        if db.update_team_status(team_id, status=status):
-            status_emoji = '✅' if status == 'approved' else '❌'
-            await query.answer(f"{status_emoji} Статус команды обновлен!")
-            
-            # Обновляем сообщение с информацией о команде
-            team_info = db.get_team_by_id(team_id)
-            if team_info:
-                keyboard = [
-                    [
-                        InlineKeyboardButton("✅ Одобрить", callback_data=f"approve_team_{team_id}"),
-                        InlineKeyboardButton("❌ Отклонить", callback_data=f"reject_team_{team_id}")
-                    ],
-                    [InlineKeyboardButton("💬 Комментарий", callback_data=f"comment_team_{team_id}")]
-                ]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-
-                players_list = "\n".join([f"• {p[0]} – {p[1]}" for p in team_info['players']])
-                message = (
-                    f"🎮 Команда: {team_info['team_name']}\n"
-                    f"📅 Дата регистрации: {team_info['registration_date']}\n"
-                    f"📱 Контакт капитана: {team_info['captain_contact']}\n"
-                    f"📊 Статус: {status}\n"
-                    f"💭 Комментарий: {team_info['admin_comment'] or 'Нет'}\n\n"
-                    f"👥 Игроки:\n{players_list}"
-                )
-                
-                await query.edit_message_text(
-                    text=message,
-                    reply_markup=reply_markup
-                )
-        else:
-            await query.answer("❌ Ошибка при обновлении статуса команды")
+    action, team_id = query.data.split('_')[0], int(query.data.split('_')[2])
     
+    if action == "approve":
+        db.update_team_status(team_id, "approved")
+        await query.edit_message_reply_markup(reply_markup=None)
+        await query.message.reply_text(f"✅ Команда одобрена!")
+    
+    elif action == "reject":
+        db.update_team_status(team_id, "rejected")
+        await query.edit_message_reply_markup(reply_markup=None)
+        await query.message.reply_text(f"❌ Команда отклонена!")
+    
+    elif action == "comment":
+        context.user_data['commenting_team'] = team_id
+        await query.message.reply_text(
+            "Введите комментарий для команды:",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("Отмена", callback_data="cancel_comment")
+            ]])
+        )
+
     await query.answer()
