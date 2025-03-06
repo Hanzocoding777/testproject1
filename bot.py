@@ -12,7 +12,7 @@ from pyrogram.enums import ParseMode
 
 # Добавьте в начало файла импорты:
 from database import Database
-#from admin_handlers import admin_command, admin_teams_list, handle_team_action #Удалено
+from admin_handlers import admin_command, admin_teams_list, handle_team_action
 
 # Enable logging
 logging.basicConfig(
